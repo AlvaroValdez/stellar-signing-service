@@ -1,0 +1,16 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model wallets {
+  id               Int      @id @default(autoincrement())
+  user_id          Int
+  public_key       String   @db.VarChar(56)
+  encrypted_secret String   @db.VarChar(255)
+  network          String   @db.VarChar(10)
+}
