@@ -42,4 +42,8 @@ app.post('/sign', async (req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 Stellar Signing Service corriendo en puerto ${PORT}`);
+<<<<<<< HEAD
 });
+=======
+});
+>>>>>>> origin/main
