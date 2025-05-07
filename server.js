@@ -1,45 +1,45 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const { Networks, Transaction } = require('stellar-sdk');
+// server.js
 require('dotenv').config();
+const express = require('express');
+const { PrismaClient } = require('@prisma/client');
+const { Keypair } = require('stellar-sdk');
+const { decrypt } = require('./utils/encryption');
 
 const app = express();
-app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
+const prisma = new PrismaClient();
 
-const PORT = process.env.PORT || 3000;
-const SECRET = process.env.SIGNER_SECRET;
-
+/**
+ * POST /sign
+ * Recibe { userId, xdr } y devuelve { signed_xdr }
+ */
 app.post('/sign', async (req, res) => {
   try {
-    const { xdr, network } = req.body;
-
-    if (!xdr || !network) {
-      return res.status(400).json({ error: 'Faltan parámetros requeridos: xdr o network.' });
-    }
-
-    if (!SECRET || !SECRET.startsWith('S')) {
-      return res.status(500).json({ error: 'Clave secreta no configurada correctamente en el entorno.' });
-    }
-
-    const tx = new Transaction(xdr, network === 'public' ? Networks.PUBLIC : Networks.TESTNET);
-    tx.sign(require('stellar-sdk').Keypair.fromSecret(SECRET));
-
-    return res.status(200).json({ xdr: tx.toXDR(), network });
-  } catch (error) {
-    console.error('❌ Error al firmar transacción:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      detail: error.message || error.stack
+    const { userId, xdr } = req.body;
+    // 1. Busca el registro de la wallet cifrada
+    const record = await prisma.wallets.findFirst({
+      where: { user_id: userId },
+      select: { encrypted_secret: true }
     });
+    if (!record) {
+      return res.status(404).json({ error: 'Wallet no encontrada para firmar.' });
+    }
+    // 2. Descifra el secretKey
+    const secretKey = decrypt(record.encrypted_secret);
+    // 3. Firma el XDR
+    const keypair = Keypair.fromSecret(secretKey);
+    const tx = keypair.sign(Buffer.from(xdr, 'base64')); 
+    // Nota: asegúrate de usar el método correcto según tu versión de SDK
+    // 4. Retorna el XDR firmado (base64)
+    res.json({ signed_xdr: tx.toString('base64') });
+  } catch (error) {
+    console.error('Error en /sign:', error);
+    res.status(500).json({ error: 'Error interno del servidor en firma.' });
   }
 });
 
-app.get('/', (req, res) => {
-  res.send('✅ Servicio de firma de transacciones Stellar listo.');
-});
-
+// Inicia servidor
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`🚀 Servicio de firma corriendo en puerto ${PORT}`);
+  console.log(`🚀 Stellar Signing Service corriendo en puerto ${PORT}`);
 });
