@@ -1,15 +1,29 @@
 // prisma/schema.prisma
-datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
-}
+ datasource db {
+   provider = "mysql"
+   url      = env("DATABASE_URL")
+ }
 
-generator client {
-  provider = "prisma-client-js"
+ generator client {
+   provider = "prisma-client-js"
+ }
+
+ model SigningLog {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  xdrUnsigned  String
+  xdrSigned    String?
+  createdAt    DateTime @default(now())
+  success      Boolean
+  errorMessage String?
+
+  user User @relation(fields: [userId], references: [id], name: "UserLogs")
 }
 
 model User {
-  id                    Int     @id @default(autoincrement())
-  email                 String  @unique
-  secretKeyEncrypted    String
+  id                 Int     @id @default(autoincrement())
+  email              String  @unique
+  secretKeyEncrypted String
+
+  signingLogs        SigningLog[] @relation("UserLogs")
 }
